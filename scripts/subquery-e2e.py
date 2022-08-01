@@ -2,14 +2,13 @@ from cosmpy.aerial.wallet import LocalWallet
 from cosmpy.aerial.tx import Transaction
 from cosmpy.crypto.keypairs import PrivateKey
 from cosmpy.crypto.address import Address
-from cosmpy.protos.cosmos.gov.v1beta1 import tx_pb2 as gov_tx, gov_pb2, query_pb2 as gov_query, query_pb2_grpc
+from cosmpy.protos.cosmos.gov.v1beta1 import tx_pb2 as gov_tx, gov_pb2, query_pb2_grpc
 from cosmpy.protos.cosmos.base.v1beta1 import coin_pb2
-from cosmpy.protos.cosmwasm.wasm.v1 import tx_pb2 as wasm_tx, query_pb2 as wasm_query
 from cosmpy.aerial.contract import LedgerContract
 from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins
 from cosmpy.aerial.client import LedgerClient, NetworkConfig, utils
 from google.protobuf import any_pb2
-import grpc
+import grpc, os, requests
 
 # ledger_client = LedgerClient(NetworkConfig.fetch_mainnet())
 
@@ -96,10 +95,10 @@ Governance vote
 """
 
 msg = gov_tx.MsgVote(
-        proposal_id=1,
-        voter=validator_address,
-        option=gov_pb2.VoteOption.VOTE_OPTION_YES
-    )
+    proposal_id=1,
+    voter=validator_address,
+    option=gov_pb2.VoteOption.VOTE_OPTION_YES
+)
 vote_tx = Transaction()
 vote_tx.add_message(msg)
 
@@ -121,8 +120,18 @@ undelegate_tx = ledger_client.undelegate_tokens(validator_operator_address, 1000
 """
 Legacy Bridge Swap
 """
+url = "https://github.com/fetchai/fetch-ethereum-bridge-v1/releases/download/v0.2.0/bridge.wasm"
+contract_request = requests.get(url)
 
-contract = LedgerContract("../../eth-bridge/contracts/fetch/bridge.wasm", ledger_client)
+if not os.path.exists("../.contract"):
+    os.mkdir("../.contract")
+try:
+    temp = open("../.contract/bridge.wasm", "rb")
+    temp.close()
+except:
+    open("../.contract/bridge.wasm", "wb").write(contract_request.content)
+
+contract = LedgerContract("../.contract/bridge.wasm", ledger_client)
 contract.deploy(
     {"cap": "250000000000000000000000000",
      "reverse_aggregated_allowance": "3000000000000000000000000",
@@ -137,7 +146,7 @@ contract.deploy(
     validator_wallet
 )
 contract.execute(
-    {"swap":{"destination":validator_address}},
+    {"swap": {"destination": validator_address}},
     validator_wallet,
     funds="10000atestfet"
 )
