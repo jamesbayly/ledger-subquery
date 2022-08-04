@@ -8,6 +8,9 @@
 node_modules/
 dist/
 
+# Script artifacts
+.contract
+
 # lock files (not using NPM)
 package-lock.json
 
