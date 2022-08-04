@@ -121,17 +121,17 @@ undelegate_tx = ledger_client.undelegate_tokens(validator_operator_address, 1000
 Legacy Bridge Swap
 """
 url = "https://github.com/fetchai/fetch-ethereum-bridge-v1/releases/download/v0.2.0/bridge.wasm"
-contract_request = requests.get(url)
 
-if not os.path.exists("../.contract"):
-    os.mkdir("../.contract")
+if not os.path.exists("/.contract"):
+    os.mkdir("/.contract")
 try:
-    temp = open("../.contract/bridge.wasm", "rb")
+    temp = open("/.contract/bridge.wasm", "rb")
     temp.close()
 except:
-    open("../.contract/bridge.wasm", "wb").write(contract_request.content)
+    contract_request = requests.get(url)
+    open("/.contract/bridge.wasm", "wb").write(contract_request.content)
 
-contract = LedgerContract("../.contract/bridge.wasm", ledger_client)
+contract = LedgerContract("/.contract/bridge.wasm", ledger_client)
 contract.deploy(
     {"cap": "250000000000000000000000000",
      "reverse_aggregated_allowance": "3000000000000000000000000",
