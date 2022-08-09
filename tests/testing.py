@@ -1,7 +1,3 @@
-import os
-import unittest, psycopg
-
-import requests
 from cosmpy.aerial.wallet import LocalWallet
 from cosmpy.aerial.tx import Transaction
 from cosmpy.crypto.keypairs import PrivateKey
@@ -13,7 +9,7 @@ from cosmpy.aerial.contract import LedgerContract
 from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins
 from cosmpy.aerial.client import LedgerClient, NetworkConfig, utils
 from google.protobuf import any_pb2
-import grpc, json
+import grpc, json, time, unittest, psycopg, os, requests
 
 
 class Base(unittest.TestCase):
@@ -105,62 +101,72 @@ class GovernanceTests(Base):
 
         tx = utils.prepare_and_broadcast_basic_transaction(self.ledger_client, tx, self.validator_wallet)
         tx.wait_to_complete()
-
-        response = self.gov_module.Proposal(gov_query.QueryProposalRequest(proposal_id=1))
-        print(response)
-        self.assertIsNotNone(response)  # add assertion here
-
-    # def testNoVotesYet(self):
-    #     response = self.gov_module.TallyResult(gov_query.QueryTallyResultRequest(proposal_id=1))
-    #     # parsed_response = json.loads(str(response))
-    #
-    #     transaction = self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchone()
+        self.assertTrue(tx.response.is_successful())
+        # response = self.gov_module.Proposal(gov_query.QueryProposalRequest(proposal_id=1))
 
     def testSubmitVote(self):
+        self.db_cursor.execute('TRUNCATE table gov_proposal_votes')
+        self.db.commit()
+        self.assertFalse(self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchall())
+
         tx = utils.prepare_and_broadcast_basic_transaction(self.ledger_client, self.vote_tx, self.validator_wallet)
         tx.wait_to_complete()
+        self.assertTrue(tx.response.is_successful())
 
-        response = self.gov_module.TallyResult(gov_query.QueryTallyResultRequest(proposal_id=1))
+        time.sleep(5)
+
+        # response = self.gov_module.TallyResult(gov_query.QueryTallyResultRequest(proposal_id=1))
         # parsed_response = json.loads(str(response))
 
-        transaction = self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchone()
-        self.assertEqual(transaction[3], 'YES')
+        row = self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchone()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[3], 'YES')
 
 
 class DelegatorTests(Base):
     def setUp(self):
-        delegate_tx = self.ledger_client.delegate_tokens(self.validator_operator_address, 100000, self.delegator_wallet)
+        delegate_tx = self.ledger_client.delegate_tokens(self.validator_operator_address, 1000, self.delegator_wallet)
         delegate_tx.wait_to_complete()
+        self.assertTrue(delegate_tx.response.is_successful())
 
     def testClaimRewards(self):
+        self.db_cursor.execute('TRUNCATE table dist_delegator_claims')
+        self.db.commit()
+
         claim_tx = self.ledger_client.claim_rewards(self.validator_operator_address, self.delegator_wallet)
         claim_tx.wait_to_complete()
+        self.assertTrue(claim_tx.response.is_successful())
 
-        transaction = self.db_cursor.execute('SELECT * from dist_delegator_claims').fetchone()
-        self.assertEqual(transaction[1], self.delegator_address)
+        time.sleep(5)
 
-        undelegate_tx = self.ledger_client.undelegate_tokens(self.validator_operator_address, 100000, self.delegator_wallet)
-        undelegate_tx.wait_to_complete()
+        row = self.db_cursor.execute('SELECT * from dist_delegator_claims').fetchone()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[1], self.delegator_address)
 
 
 class TransactionTests(Base):
+
     def testNativeTransfer(self):
-        amount = 1000
+        amount = 50000000
         denom = "atestfet"
         msg_type = '/cosmos.bank.v1beta1.MsgSend'
 
-        print(self.db_cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'app'").fetchall())
+        self.db_cursor.execute('TRUNCATE table native_transfers')
+        self.db.commit()
 
         tx = self.ledger_client.send_tokens(self.delegator_wallet.address(), amount, denom, self.validator_wallet)
         tx.wait_to_complete()
+        self.assertTrue(tx.response.is_successful())
 
-        transaction = self.db_cursor.execute('SELECT * from native_transfers').fetchone()
-        print(transaction[1]['amount'][0]['amount'])
+        time.sleep(5)
 
-        self.assertEqual(transaction[1]['amount'][0]['amount'], str(amount))
-        self.assertEqual(transaction[1]['amount'][0]['denom'], denom)
-        self.assertEqual(transaction[1]['toAddress'], self.delegator_address)
-        self.assertEqual(transaction[1]['fromAddress'], self.validator_address)
+        row = self.db_cursor.execute('SELECT * from native_transfers').fetchone()
+        self.assertIsNotNone(row)
+
+        self.assertEqual(row[1]['amount'][0]['amount'], str(amount))
+        self.assertEqual(row[1]['amount'][0]['denom'], denom)
+        self.assertEqual(row[1]['toAddress'], self.delegator_address)
+        self.assertEqual(row[1]['fromAddress'], self.validator_address)
 
 
 class LegacyBridgeSwapTests(Base):
@@ -176,9 +182,9 @@ class LegacyBridgeSwapTests(Base):
         except:
             contract_request = requests.get(url)
             open("../.contract/bridge.wasm", "wb").write(contract_request.content)
+
         self.contract = LedgerContract("../.contract/bridge.wasm", self.ledger_client)
 
-    def testDeployContract(self):
         self.contract.deploy(
             {"cap": "250000000000000000000000000",
              "reverse_aggregated_allowance": "3000000000000000000000000",
@@ -194,11 +200,21 @@ class LegacyBridgeSwapTests(Base):
         )
 
     def testContractSwap(self):
+        self.db_cursor.execute('TRUNCATE table legacy_bridge_swaps')
+        self.db.commit()
+        self.assertFalse(self.db_cursor.execute('SELECT * from legacy_bridge_swaps').fetchall())
+
         self.contract.execute(
             {"swap": {"destination": self.validator_address}},
             self.validator_wallet,
             funds="10000atestfet"
         )
+
+        time.sleep(12)
+
+        row = self.db_cursor.execute('SELECT * from legacy_bridge_swaps').fetchone()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[1], self.validator_address)
 
 
 if __name__ == '__main__':
