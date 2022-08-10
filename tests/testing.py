@@ -9,7 +9,10 @@ from cosmpy.aerial.contract import LedgerContract
 from bip_utils import Bip39SeedGenerator, Bip44, Bip44Coins
 from cosmpy.aerial.client import LedgerClient, NetworkConfig, utils
 from google.protobuf import any_pb2
+from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
 import grpc, json, time, unittest, psycopg, os, requests
+unittest.TestLoader.sortTestMethodsUsing = lambda *args: 1
 
 
 class Base(unittest.TestCase):
@@ -23,6 +26,7 @@ class Base(unittest.TestCase):
     ledger_client = None
     db = None
     db_cursor = None
+    gql_client = None
 
     @classmethod
     def setUpClass(cls):
@@ -52,6 +56,9 @@ class Base(unittest.TestCase):
         cls.ledger_client = LedgerClient(cfg)
         cls.gov_module = query_pb2_grpc.QueryStub(gov_cfg)
 
+        transport = AIOHTTPTransport(url="http://localhost:3000")
+        cls.gql_client = Client(transport=transport, fetch_schema_from_transport=True)
+
         cls.db = psycopg.connect(
             host="localhost",
             port="5432",
@@ -70,6 +77,9 @@ class Base(unittest.TestCase):
 
 class GovernanceTests(Base):
     vote_tx = None
+    denom = "atestfet"
+    amount = "10000000"
+    option = "YES"
 
     def setUp(self):
         self.msg = gov_tx.MsgVote(
@@ -90,8 +100,8 @@ class GovernanceTests(Base):
         msg = gov_tx.MsgSubmitProposal(
             content=proposal_content,
             initial_deposit=[coin_pb2.Coin(
-                denom="atestfet",
-                amount="10000000"
+                denom=self.denom,
+                amount=self.amount
             )],
             proposer=self.validator_address
         )
@@ -104,7 +114,7 @@ class GovernanceTests(Base):
         self.assertTrue(tx.response.is_successful())
         # response = self.gov_module.Proposal(gov_query.QueryProposalRequest(proposal_id=1))
 
-    def testSubmitVote(self):
+    def testProposalVote(self):
         self.db_cursor.execute('TRUNCATE table gov_proposal_votes')
         self.db.commit()
         self.assertFalse(self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchall())
@@ -115,17 +125,35 @@ class GovernanceTests(Base):
 
         time.sleep(5)
 
-        # response = self.gov_module.TallyResult(gov_query.QueryTallyResultRequest(proposal_id=1))
-        # parsed_response = json.loads(str(response))
-
         row = self.db_cursor.execute('SELECT * from gov_proposal_votes').fetchone()
         self.assertIsNotNone(row)
-        self.assertEqual(row[3], 'YES')
+        self.assertEqual(row[3], self.option)
+
+    def testRetrieveVote(self):
+        query = gql(
+            """
+            query getGovernanceVotes {
+                govProposalVotes {
+                    nodes {
+                        transactionId
+                        voterAddress
+                        option
+                        }
+                    }
+                }
+            """
+        )
+
+        result = self.gql_client.execute(query)
+        self.assertEqual(result["govProposalVotes"]["nodes"][0]["option"], self.option)
+        self.assertEqual(result["govProposalVotes"]["nodes"][0]["voterAddress"], self.validator_address)
 
 
 class DelegatorTests(Base):
+    amount = 100
+
     def setUp(self):
-        delegate_tx = self.ledger_client.delegate_tokens(self.validator_operator_address, 1000, self.delegator_wallet)
+        delegate_tx = self.ledger_client.delegate_tokens(self.validator_operator_address, self.amount, self.delegator_wallet)
         delegate_tx.wait_to_complete()
         self.assertTrue(delegate_tx.response.is_successful())
 
@@ -143,34 +171,76 @@ class DelegatorTests(Base):
         self.assertIsNotNone(row)
         self.assertEqual(row[1], self.delegator_address)
 
+    def testRetrieveClaim(self):
+        query = gql(
+            """
+            query getDelegatorRewardClaim {
+                distDelegatorClaims {
+                    nodes {
+                        transactionId
+                        delegatorAddress
+                        validatorAddress
+                        }
+                    }
+                }
+            """
+        )
+
+        result = self.gql_client.execute(query)
+        self.assertEqual(result["distDelegatorClaims"]["nodes"][0]["delegatorAddress"], self.delegator_address)
+        self.assertEqual(result["distDelegatorClaims"]["nodes"][0]["validatorAddress"], self.validator_operator_address)
+
 
 class TransactionTests(Base):
+    amount = 5000000
+    denom = "atestfet"
+    msg_type = '/cosmos.bank.v1beta1.MsgSend'
 
     def testNativeTransfer(self):
-        amount = 50000000
-        denom = "atestfet"
-        msg_type = '/cosmos.bank.v1beta1.MsgSend'
 
         self.db_cursor.execute('TRUNCATE table native_transfers')
         self.db.commit()
 
-        tx = self.ledger_client.send_tokens(self.delegator_wallet.address(), amount, denom, self.validator_wallet)
+        tx = self.ledger_client.send_tokens(self.delegator_wallet.address(), self.amount, self.denom, self.validator_wallet)
         tx.wait_to_complete()
         self.assertTrue(tx.response.is_successful())
 
         time.sleep(5)
 
         row = self.db_cursor.execute('SELECT * from native_transfers').fetchone()
+
         self.assertIsNotNone(row)
 
-        self.assertEqual(row[1]['amount'][0]['amount'], str(amount))
-        self.assertEqual(row[1]['amount'][0]['denom'], denom)
+        self.assertEqual(row[1]['amount'][0]['amount'], str(self.amount))
+        self.assertEqual(row[1]['amount'][0]['denom'], self.denom)
         self.assertEqual(row[1]['toAddress'], self.delegator_address)
         self.assertEqual(row[1]['fromAddress'], self.validator_address)
+
+    def testRetrieveTransfer(self):
+        query = gql(
+            """
+            query getNativeTransfers {
+                nativeTransfers {
+                    nodes {
+                        transactionId
+                        message 
+                        }
+                    }
+                }
+            """
+        )
+
+        result = self.gql_client.execute(query)
+        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["amount"][0]["denom"], self.denom)
+        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["amount"][0]["amount"], str(self.amount))
+        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["toAddress"], self.delegator_address)
+        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["fromAddress"], self.validator_address)
 
 
 class LegacyBridgeSwapTests(Base):
     contract = None
+    amount = "10000"
+    denom = "atestfet"
 
     def setUp(self):
         url = "https://github.com/fetchai/fetch-ethereum-bridge-v1/releases/download/v0.2.0/bridge.wasm"
@@ -207,7 +277,7 @@ class LegacyBridgeSwapTests(Base):
         self.contract.execute(
             {"swap": {"destination": self.validator_address}},
             self.validator_wallet,
-            funds="10000atestfet"
+            funds=str(self.amount)+self.denom
         )
 
         time.sleep(12)
@@ -215,6 +285,27 @@ class LegacyBridgeSwapTests(Base):
         row = self.db_cursor.execute('SELECT * from legacy_bridge_swaps').fetchone()
         self.assertIsNotNone(row)
         self.assertEqual(row[1], self.validator_address)
+
+    def testRetrieveSwap(self):
+        query = gql(
+            """
+            query getLegacyBridgeSwaps {
+                legacyBridgeSwaps {
+                    nodes {
+                        transactionId
+                        destination
+                        amount
+                        denom
+                        }
+                    }
+                }
+            """
+        )
+
+        result = self.gql_client.execute(query)
+        self.assertEqual(result["legacyBridgeSwaps"]["nodes"][0]["destination"], self.validator_address)
+        self.assertEqual(result["legacyBridgeSwaps"]["nodes"][0]["amount"], self.amount)
+        self.assertEqual(result["legacyBridgeSwaps"]["nodes"][0]["denom"], self.denom)
 
 
 if __name__ == '__main__':
