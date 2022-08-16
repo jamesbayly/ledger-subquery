@@ -48,10 +48,11 @@ class TestTransfer(base.Base):
         This provides {"toAddress":address, "fromAddress":address, "amount":["amount":amount, "denom":denom]}
         which can further be queried for the values of interest.
         """
-        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["amount"][0]["amount"], str(self.amount), "\nGQLError: fund amount does not match")
-        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["amount"][0]["denom"], self.denom, "\nGQLError: fund denomination does not match")
-        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["toAddress"], self.delegator_address, "\nGQLError: destination address does not match")
-        self.assertEqual(result["nativeTransfers"]["nodes"][0]["message"]["fromAddress"], self.validator_address, "\nGQLError: from address does not match")
+        message_ = result["nativeTransfers"]["nodes"][0]["message"]
+        self.assertEqual(message_["amount"][0]["amount"], str(self.amount), "\nGQLError: fund amount does not match")
+        self.assertEqual(message_["amount"][0]["denom"], self.denom, "\nGQLError: fund denomination does not match")
+        self.assertEqual(message_["toAddress"], self.delegator_address, "\nGQLError: destination address does not match")
+        self.assertEqual(message_["fromAddress"], self.validator_address, "\nGQLError: from address does not match")
 
 
 if __name__ == '__main__':
