@@ -20,7 +20,7 @@ type Block @entity {
   id: ID! # The block header hash
   chainId: String! @index
   height: BigInt! @index
-  timestamp: String!
+  timestamp: Date!
   transactions: [Transaction] @derivedFrom(field: "block")
   messages: [Message] @derivedFrom(field: "block")
   events: [Event] @derivedFrom(field: "block")
@@ -98,6 +98,24 @@ type LegacyBridgeSwap @entity {
   amount: BigInt!
   denom: String!
   message: Message!
+  transaction: Transaction!
+  block: Block!
+}
+
+type Coin @jsonField {
+  denom: String!
+  amount: String!
+}
+
+type NativeTransferMsg @jsonField {
+  toAddress: String!  # indexable
+  fromAddress: String! #indexable
+  amount: [Coin]! # indexible
+}
+
+type NativeTransfer @entity {
+  id: ID!
+  message: NativeTransferMsg!
   transaction: Transaction!
   block: Block!
 }

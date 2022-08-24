@@ -2,29 +2,33 @@ version: "3"
 
 services:
   postgres:
-    image: postgres:12-alpine
+    image: postgres:14-alpine
     ports:
       - 5432:5432
     volumes:
       - .data/postgres:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: "subquery"
+      POSTGRES_PASSWORD: "subquery"
+      POSTGRES_DB: "subquery"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U subquery"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   subquery-node:
-    image: onfinality/subql-node-cosmos:v0.2.0
+    build:
+      context: .
+      dockerfile: ./docker/node.dockerfile
     depends_on:
       "postgres":
         condition: service_healthy
     restart: always
     environment:
-      DB_USER: postgres
-      DB_PASS: postgres
-      DB_DATABASE: postgres
+      DB_USER: "subquery"
+      DB_PASS: "subquery"
+      DB_DATABASE: "subquery"
       DB_HOST: postgres
       DB_PORT: 5432
     volumes:
@@ -32,6 +36,7 @@ services:
     command:
       - -f=/app
       - --db-schema=app
+      - --batch-size=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://subquery-node:3000/ready"]
       interval: 3s
@@ -39,7 +44,9 @@ services:
       retries: 10
 
   graphql-engine:
-    image: onfinality/subql-query:latest
+    build:
+      context: .
+      dockerfile: ./docker/api.dockerfile
     ports:
       - 3000:3000
     depends_on:
@@ -49,11 +56,16 @@ services:
         condition: service_started
     restart: always
     environment:
-      DB_USER: postgres
-      DB_PASS: postgres
-      DB_DATABASE: postgres
+      DB_USER: "subquery"
+      DB_PASS: "subquery"
+      DB_DATABASE: "subquery"
       DB_HOST: postgres
       DB_PORT: 5432
+    volumes:
+      - ./subql/packages/query/dist:/app/dist
+      - ./subql/node_modules:/app/node_modules
+      - ./subql/packages/query/node_modules/.bin:/app/node_modules/.bin
+    entrypoint: ["/sbin/tini", "--", "yarn", "start:prod"]
     command:
       - --name=app
       - --playground
