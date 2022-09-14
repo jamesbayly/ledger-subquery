@@ -8,8 +8,8 @@ set -ex
 
 BINARY=${BINARY:-fetchd}
 
-DENOM=${DENOM:-ustake}
-CHAIN_ID=${CHAIN_ID:-testing}
+DENOM=${DENOM:-atestfet}
+CHAIN_ID=${CHAIN_ID:-fetchchain}
 MONIKER=${MONIKER:-node001}
 
 # number of user accounts to create

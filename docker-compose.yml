@@ -33,7 +33,7 @@ services:
       DB_PORT: 5432
       START_BLOCK: "1"
       NETWORK_ENDPOINT: "http://fetch-node:26657"
-      CHAIN_ID: "testing"
+      CHAIN_ID: "fetchchain"
     volumes:
       - ./:/app
     command:
@@ -81,7 +81,7 @@ services:
       - BINARY=fetchd
       - DENOM=atestfet
       - MONIKER=fetchnode
-      - CHAIN_ID=testing
+      - CHAIN_ID=fetchchain
       - SET_CUSTOM_CONSENSUS_PARAMS=1
       - VALIDATOR_MNEMONIC=nut grocery slice visit barrel peanut tumble patch slim logic install evidence fiction shield rich brown around arrest fresh position animal butter forget cost
       - EXTRA_GENESIS_ACCOUNTS=fetch1vmvxe6xgkqfe9fsp63p4f5pgp0jqe7h6505pnk:1000000000000000000000000atestfet fetch1ka9j6a8u0lnt8rm86d9ntyurm39jylcu3dstng:1000000000000000000000000atestfet fetch108g2rh9e8r65hq69dm9ca76ttmke3utdy983mf:1000000000000000000000000atestfet
