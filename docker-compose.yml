@@ -109,3 +109,23 @@ services:
       - 9090
       - 26656
       - 26657
+  hermes:
+    build: ./docker/hermes
+    entrypoint: ["sh", "-c", "/scripts/start_hermes.sh"]
+    depends_on:
+      "wasm-node":
+        condition: service_started
+      "fetch-node":
+        condition: service_started
+    restart: always
+    volumes:
+      - ./docker/hermes/config.toml:/root/.hermes/config.toml:ro
+      - ./scripts/start_hermes.sh:/scripts/start_hermes.sh:ro
+    environment:
+      # fetch108g2rh9e8r65hq69dm9ca76ttmke3utdy983mf
+      - FETCH_RELAYER_MNEMONIC=length panther shoe gun grief river state boy note lunar input chest iron mirror elephant flip ripple scout reflect orchard frame borrow radio total
+      # wasm132mmds9flytwh4grswde8zmcuwnd9yc4vdftf6
+      - WASM_RELAYER_MNEMONIC=all expect burger grit believe forest match math holiday polar roof soccer thank focus note lion gesture dream bounce pony whip scale group refuse
+    expose:
+      - 3000 # REST API https://hermes.informal.systems/rest-api.html#endpoints
+      - 3001 # prometheus telemetry
