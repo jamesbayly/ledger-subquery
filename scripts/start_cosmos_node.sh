@@ -21,7 +21,7 @@ EXTRA_GENESIS_ACCOUNTS=${EXTRA_GENESIS_ACCOUNTS:-}
 SET_CUSTOM_CONSENSUS_PARAMS=${SET_CUSTOM_CONSENSUS_PARAMS:-0}
 
 if [ ! -f "$(find ~ -name genesis.json)" ]; then
-  ${BINARY} init --chain-id "$CHAIN_ID" "$MONIKER"
+  ${BINARY} init --chain-id "${CHAIN_ID}" "$MONIKER"
 
   # client config
   ${BINARY} config keyring-backend test
@@ -29,8 +29,8 @@ if [ ! -f "$(find ~ -name genesis.json)" ]; then
   ${BINARY} config chain-id "${CHAIN_ID}"
   
   # genesis override
-  HOME_DIR=$(dirname $(dirname $(find ~ -name genesis.json)))
-  sed -i "s/\"stake\"/\"$DENOM\"/" "${HOME_DIR}/config/genesis.json"
+  HOME_DIR=$(dirname "$(dirname "$(find ~ -name genesis.json)")")
+  sed -i "s/\"stake\"/\"${DENOM}\"/" "${HOME_DIR}/config/genesis.json"
   # Enable rest API
   sed -i '/^\[api\]$/,/^\[/ s/^enable = false/enable = true/' "${HOME_DIR}/config/app.toml"
   # Allow all origins on RPC endpoint
@@ -42,33 +42,33 @@ if [ ! -f "$(find ~ -name genesis.json)" ]; then
   fi
  
   # create validator account from mnemonic if provided or autogenerate otherwise
-  if [ ! -z "${VALIDATOR_MNEMONIC}" ]; then
+  if [ -n "${VALIDATOR_MNEMONIC}" ]; then
     echo "${VALIDATOR_MNEMONIC}" | ${BINARY} --keyring-backend "test" keys add validator --recover
   else
     ${BINARY} --keyring-backend "test" keys add validator
   fi
   VAL_ADDR=$(${BINARY} keys show validator -a)
-  echo "Created validator: $VAL_ADDR"
-  ${BINARY} add-genesis-account ${VAL_ADDR} "1000000000000000000000000$DENOM"
+  echo "Created validator: ${VAL_ADDR}"
+  ${BINARY} add-genesis-account "${VAL_ADDR}" "1000000000000000000000000${DENOM}"
 
   # autogenerate given number of keys and genesis accounts
-  for i in $(seq ${NUM_AUTOGEN_ACCOUNTS}); do
-    ADDR=$(${BINARY} --keyring-backend "test" keys add account${i} | grep address | awk '{print $2}')
-    echo "Created account${i}: $ADDR"
+  for i in $(seq "${NUM_AUTOGEN_ACCOUNTS}"); do
+    ADDR=$(${BINARY} --keyring-backend "test" keys add "account${i}" | grep address | awk '{print $2}')
+    echo "Created account${i}: ${ADDR}"
 
-    ${BINARY} add-genesis-account --keyring-backend "test" "$ADDR" "1000000000000000000000000$DENOM" 
+    ${BINARY} add-genesis-account --keyring-backend "test" "${ADDR}" "1000000000000000000000000${DENOM}" 
   done
 
   # create genesis accounts from list of space of newline separated account string "<address>:<amount><denom>,<denom2> <address2>:<amount2><denom3>..."
-  if [ ! -z "${EXTRA_GENESIS_ACCOUNTS}" ]; then
-    echo "${EXTRA_GENESIS_ACCOUNTS}" | tr ' ' '\n' | while read account; do
-      if [ ! -z "${account}" ]; then
-        ${BINARY} add-genesis-account --keyring-backend "test" $(echo $account | awk -F: '{print $1}') $(echo $account | awk -F: '{print $2}') 
+  if [ -n "${EXTRA_GENESIS_ACCOUNTS}" ]; then
+    echo "${EXTRA_GENESIS_ACCOUNTS}" | tr ' ' '\n' | while read -r account; do
+      if [ -n "${account}" ]; then
+        ${BINARY} add-genesis-account --keyring-backend "test" "$(echo "${account}" | awk -F: '{print $1}')" "$(echo "${account}" | awk -F: '{print $2}')"
       fi
     done
   fi
 
-  ${BINARY} gentx --keyring-backend "test" validator "1000000000000000000$DENOM" --chain-id="$CHAIN_ID" --amount="1000000000000000000$DENOM" 
+  ${BINARY} gentx --keyring-backend "test" validator "1000000000000000000${DENOM}" --chain-id="${CHAIN_ID}" --amount="1000000000000000000${DENOM}" 
 
   ${BINARY} collect-gentxs
 else
