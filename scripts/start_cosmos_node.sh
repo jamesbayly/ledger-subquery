@@ -59,10 +59,12 @@ if [ ! -f "$(find ~ -name genesis.json)" ]; then
     ${BINARY} add-genesis-account --keyring-backend "test" "$ADDR" "1000000000000000000000000$DENOM" 
   done
 
-  # create genesis accounts from list of space separated account string "<address>:<amount><denom>,<denom2> <address2>:<amount2><denom3>..."
+  # create genesis accounts from list of space of newline separated account string "<address>:<amount><denom>,<denom2> <address2>:<amount2><denom3>..."
   if [ ! -z "${EXTRA_GENESIS_ACCOUNTS}" ]; then
     echo "${EXTRA_GENESIS_ACCOUNTS}" | tr ' ' '\n' | while read account; do
-      ${BINARY} add-genesis-account --keyring-backend "test" $(echo $account | awk -F: '{print $1}') $(echo $account | awk -F: '{print $2}') 
+      if [ ! -z "${account}" ]; then
+        ${BINARY} add-genesis-account --keyring-backend "test" $(echo $account | awk -F: '{print $1}') $(echo $account | awk -F: '{print $2}') 
+      fi
     done
   fi
 
