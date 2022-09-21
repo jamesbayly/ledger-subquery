@@ -143,3 +143,19 @@ class NativeBalanceChangeFields(NamedFields):
     @classmethod
     def select_query(cls, table="native_balance_changes"):
         return super().select_query(table)
+
+class IBCTransferFields(NamedFields):
+    id = 0
+    to_address = 1
+    from_address = 2
+    amount = 3
+    denom = 4
+    source_channel = 5
+    source_port = 6
+    message_id = 7
+    transaction_id = 8
+    block_id = 9
+
+    @classmethod
+    def select_query(cls, table="ibc_transfers"):
+        return super().select_query(table)

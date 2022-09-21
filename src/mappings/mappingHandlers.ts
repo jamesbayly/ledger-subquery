@@ -10,6 +10,7 @@ import {
   LegacyBridgeSwap,
   Message,
   NativeTransfer,
+  IbcTransfer,
   Transaction,
   TxStatus
 } from "../types";
@@ -365,4 +366,39 @@ async function saveNativeBalanceEvent(id: string, address: string, amount: BigIn
   });
 
   await nativeBalanceChangeEntity.save()
+}
+
+export async function handleIBCTransfer(event: CosmosEvent): Promise<void> {
+  const msg = event.msg;
+  logger.info(`[handleIBCTransfer] (tx ${msg.tx.hash}): indexing message ${msg.idx + 1} / ${msg.tx.decodedTx.body.messages.length}`)
+  logger.debug(`[handleIBCTransfer] (msg.msg): ${JSON.stringify(msg.msg, null, 2)}`)
+  
+  const decodedMsg = msg.msg.decodedMsg;
+  const sourcePort = decodedMsg.sourcePort;
+  const sourceChannel = decodedMsg.sourceChannel;
+  const tokenAmount = decodedMsg.token?.amount;
+  const tokenDenom = decodedMsg.token?.denom;
+  const sender = decodedMsg.sender;
+  const receiver = decodedMsg.receiver;
+  
+  if (!sourcePort || !sourceChannel || !tokenAmount || !tokenDenom || !sender || !receiver) {
+    logger.warn(`[handleIBCTransfer] (tx ${msg.tx.hash}): cannot index message (msg.msg): ${JSON.stringify(msg.msg, null, 2)}`)
+    return 
+  }
+  
+  const id = messageId(msg);
+  const transferEntity = IbcTransfer.create({
+    id,
+    toAddress: receiver,
+    fromAddress: sender,
+    amount: {amount: tokenAmount, denom: tokenDenom},
+    denom: tokenDenom,
+    sourcePort,
+    sourceChannel,
+    messageId: id,
+    transactionId: msg.tx.hash,
+    blockId: msg.block.block.id
+  });
+
+  await transferEntity.save();
 }
