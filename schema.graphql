@@ -144,8 +144,8 @@ type IbcTransfer @entity {
   fromAddress: String! @index
   amount: Coin!
   denom: String! @index
-  sourceChannel: String!
-  sourcePort: String!
+  sourceChannel: String! @index
+  sourcePort: String! @index
   message: Message!
   transaction: Transaction!
   block: Block!
