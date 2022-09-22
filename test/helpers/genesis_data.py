@@ -15,14 +15,39 @@ test_bank_state_supply: List[Dict] = [
 
 test_bank_state = {
     "balances": test_bank_state_balances,
+    "denom_metadata": [],
+    "params": {},
     "supply": test_bank_state_supply,
 }
 
 test_app_state = {
+    "auth": {},
+    "authz": {},
     "bank": test_bank_state,
+    "capability": {},
+    "crisis": {},
+    "distribution": {},
+    "evidence": {},
+    "feegrant": {},
+    "genutil": {},
+    "gov": {},
+    "ibc": {},
+    "mint": {},
+    "params": {},
+    "slashing": {},
+    "staking": {},
+    "transfer": {},
+    "upgrade": {},
+    "vesting": {},
+    "wasm": {},
 }
 
 test_genesis_data = {
+    "app_hash": {},
     "app_state": test_app_state,
     "chain_id": "test",
+    "consensus_params": {},
+    "genesis_time": "",
+    "initial_height": "",
+    "validators": [],
 }

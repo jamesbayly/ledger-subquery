@@ -15,17 +15,17 @@ class TestBank(unittest.TestCase):
         bank_state = BankState(**test_bank_state)
 
         for i, balance in enumerate(bank_state.balances):
-            self.assertEqual(balance.address, test_bank_state["balances"][i]["address"])
+            self.assertEqual(test_bank_state["balances"][i]["address"], balance.address)
 
             for j, coin in enumerate(balance.coins):
                 expected_coin = test_bank_state["balances"][i]["coins"][j]
-                self.assertEqual(coin.amount, expected_coin["amount"])
-                self.assertEqual(coin.denom, expected_coin["denom"])
+                self.assertEqual(expected_coin["amount"], coin.amount)
+                self.assertEqual(expected_coin["denom"], coin.denom)
 
         for i, coin in enumerate(bank_state.supply):
             expected_coin = test_bank_state["supply"][i]
-            self.assertEqual(coin.amount, expected_coin["amount"])
-            self.assertEqual(coin.denom, expected_coin["denom"])
+            self.assertEqual(expected_coin["amount"], coin.amount)
+            self.assertEqual(expected_coin["denom"], coin.denom)
 
 
 if __name__ == '__main__':

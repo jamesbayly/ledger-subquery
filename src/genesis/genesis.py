@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Tuple
 
 from reactivex import Observable, Observer, operators as op, create
 from reactivex.scheduler.scheduler import Scheduler
@@ -63,7 +63,7 @@ class AppStateData:
     # wasm: WASMState = field(default_factory=WASMState)
 
 
-class AppState(AppStateData):
+class AppState(OwnAttrsMixin, AppStateData):
     def __init__(self, **kwargs):
         bank_state_data = {}
         if kwargs.get("bank") is not None:
@@ -88,7 +88,7 @@ class GenesisData(OwnAttrsMixin):
     validators: List[Validator] = list_field_with_default(Validator)
 
 
-class Genesis:
+class Genesis(OwnAttrsMixin):
     @staticmethod
     def download(json_url: str):
         return Genesis(**(download_json(json_url)))
@@ -102,8 +102,19 @@ class Genesis:
         self.data = GenesisData(**kwargs)
         self._source = create(self._observer_factory)
 
+        # TODO: deleteme!
+        def on_next(next_: Tuple[str, any]):
+            key, value = next_
+            # print(f"next key: {key}")
+            if key.startswith(".app_state.bank"):
+                print(f"genesis.py:106 | (on_next) key: {key} - value: {value}")
+
+        self._source.subscribe(on_next=on_next)
+        # END TODO: deleteme!
+
     def _observer_factory(self, observer: Observer, scheduler: Optional[Scheduler]):
         recurse_object(self, observer)
+        observer.on_completed()
 
     @property
     def source(self):
@@ -112,7 +123,12 @@ class Genesis:
 
 def recurse_object(obj: OwnAttrsMixin, observer: Observer, keys_path=""):
     for attr in obj.attrs():
-        next_keys_path = f"{keys_path}.{attr}"
+        # TODO: unworkaround
+        if attr == "data":
+            next_keys_path = keys_path
+        else:
+            next_keys_path = f"{keys_path}.{attr}"
+
         value = getattr(obj, attr)
 
         if isinstance(value, type(None)):
@@ -121,6 +137,7 @@ def recurse_object(obj: OwnAttrsMixin, observer: Observer, keys_path=""):
         if isinstance(value, list):
             for v in value:
                 observer.on_next((next_keys_path, v))
+            continue
 
         observer.on_next((next_keys_path, value))
 
@@ -129,8 +146,12 @@ def recurse_object(obj: OwnAttrsMixin, observer: Observer, keys_path=""):
 
 
 class GenesisSingleton:
-    def __new__(cls, genesis_dict):
+    def __new__(cls, json_url=None):
         if not hasattr(cls, "_genesis"):
-            cls._genesis = Genesis(**genesis_dict)
+            if json_url is None:
+                raise Exception("attempted to memoize GenesisSingleton._genesis but json_url was None")
+
+            data = download_json(json_url)
+            cls._genesis = Genesis(**data)
 
         return cls._genesis

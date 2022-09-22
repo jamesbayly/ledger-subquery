@@ -12,7 +12,7 @@ class OwnAttrsMixin:
         Returns list of attributes which do not start with "_"
         """
 
-        return [v for v in dir(self) if not v.startswith("_")]
+        return [v for v in self.__dict__.keys() if not v.startswith("_")]
 
 
 class ListConstructorMixin:
@@ -22,6 +22,6 @@ class ListConstructorMixin:
 
 
 @dataclass
-class Coin(ListConstructorMixin):
+class Coin(ListConstructorMixin, OwnAttrsMixin):
     amount: str
     denom: str

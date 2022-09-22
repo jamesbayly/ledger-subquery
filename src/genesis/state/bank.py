@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict
 
-from src.genesis.state.common import Coin, ListConstructorMixin, list_field_with_default
+from src.genesis.state.common import Coin, ListConstructorMixin, list_field_with_default, OwnAttrsMixin
 
 
 @dataclass(frozen=True)
@@ -10,9 +10,8 @@ class BalanceData(ListConstructorMixin):
     coins: List[Coin]
 
 
-class Balance(BalanceData, ListConstructorMixin):
+class Balance(BalanceData, ListConstructorMixin, OwnAttrsMixin):
     def __init__(self, **kwargs):
-
         kwargs["coins"] = Coin.from_dict_list(kwargs["coins"])
         super().__init__(**kwargs)
 
@@ -20,12 +19,12 @@ class Balance(BalanceData, ListConstructorMixin):
 @dataclass(frozen=True)
 class BankStateData:
     balances: List[Balance] = list_field_with_default(Balance)
-    supply: List[Coin] = list_field_with_default(Coin)
     denom_metadata: List[Dict] = list_field_with_default(dict)
     params: Dict = field(default_factory=dict)
+    supply: List[Coin] = list_field_with_default(Coin)
 
 
-class BankState(BankStateData):
+class BankState(OwnAttrsMixin, BankStateData):
     def __init__(self, **kwargs: Dict[str, any]):
         for k in [k for k in vars(BankStateData) if not k.startswith("_")]:
             if kwargs.get(k) is None:
