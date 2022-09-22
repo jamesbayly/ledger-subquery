@@ -63,6 +63,7 @@ dataSources:
           kind: cosmos/EventHandler
           filter:
             type: "withdraw_rewards"
+#       # TODO: perhaps merge this handler config and that of CW20BalanceTransfer
         - handler: handleCW20Transfer
           kind: cosmos/EventHandler
           filter:
@@ -78,3 +79,24 @@ dataSources:
           kind: cosmos/EventHandler
           filter:
             type: "coin_received"
+        - handler: handleCW20BalanceTransfer
+          kind: cosmos/EventHandler
+          filter:
+            type: "execute"
+            messageFilter:
+              type: "/cosmwasm.wasm.v1.MsgExecuteContract"
+              contractCall: "transfer"
+        - handler: handleCW20BalanceBurn
+          kind: cosmos/EventHandler
+          filter:
+            type: "execute"
+            messageFilter:
+              type: "/cosmwasm.wasm.v1.MsgExecuteContract"
+              contractCall: "burn"
+        - handler: handleCW20BalanceMint
+          kind: cosmos/EventHandler
+          filter:
+            type: "execute"
+            messageFilter:
+              type: "/cosmwasm.wasm.v1.MsgExecuteContract"
+              contractCall: "mint"

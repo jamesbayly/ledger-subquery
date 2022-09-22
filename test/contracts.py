@@ -54,7 +54,9 @@ class CW20Contract(LedgerContract):
             "initial_balances": [{
                 "amount": "3000000000000000000000000",
                 "address": str(admin.address())
-            }]},
+            }],
+            "mint": {"minter": str(admin.address())}
+        },
             admin,
             store_gas_limit=3000000
         )
